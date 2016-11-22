@@ -31,18 +31,13 @@ exports.handleRequest = function (req, res) {
   console.log('Serving request type' + req.method + ' for url ' + req.url);
   var action = actions[req.method];
   var urlParts = parser.parse(req.url);
+  var route = urlParts.pathname;
 
   if (urlParts.pathname === '/') {
     route = __dirname + '/public/index.html';
-
-    // TESTER
-    console.log('IS URL IN LIST............', archive.isUrlInList('example1.com', (boolean) => {
-        return boolean;
-      }
-    ));
-    // utils.sendResponse(res, archive.readListOfUrls, 200);  <>?<
+    // utils.sendResponse(res, archive.readListOfUrls, 200);
   } else {
-    if (archive.isUrlInList()) {
+    if (archive.isUrlInList(urlParts.pathname)) {
       route = urlParts.pathname;
     } else {
       utils.sendResponse(res, 'Not found', 404);
