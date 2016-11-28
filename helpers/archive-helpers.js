@@ -1,5 +1,6 @@
 var fs = require('fs');
 var path = require('path');
+var request = require('request');
 var _ = require('underscore');
 
 /*
@@ -27,55 +28,91 @@ exports.initialize = function(pathsObj) {
 
 exports.readListOfUrls = function(callback) {
   fs.readFile(exports.paths.list, (err, sites) => {
-    if (err) {
-      console.log('Error');
-    } else {
-      sites = sites.toString().split('\n');
+    sites = sites.toString().split('\n');
+    if (callback) {
       callback(sites);
     }
   });
 };
 
-exports.isUrlInList = function(url, callback) { 
+exports.isUrlInList = function(url, callback) {
   exports.readListOfUrls((sites) => {
-    // loop through and check for match
-    callback(sites.indexOf(url) !== -1);
+    var found = _.any(sites, (site, i) => {
+      return site.match(url);
+    });
+    callback(found);
   });
 };
 
 exports.addUrlToList = function(url, callback) {
-  fs.appendFile(exports.paths.list, url + '\n', (err) => {
-    if (err) {
-      console.log('Error');
-    } else {
-      if (callback) {
-        callback();
-      }
-    }
+  fs.appendFile(exports.paths.list, url + '\n', (err, file) => {
+    callback();
   });
 };
 
-exports.readArchive = function(callback) {
-  fs.readdir(exports.paths.archivedSites, (err, files) => {
-    if (err) {
-      console.log('Error');
-    } else {
-      var filesInArchive = [];
-      files.forEach((file) => {
-        filesInArchive.push(file);
-      });
-      callback(filesInArchive);
-    }
+exports.isUrlArchived = function(url, callback) {
+  var sitePath = path.join(exports.paths.archivedSites, url);
+
+  fs.exists(sitePath, (exists) => {
+    callback(exists);
   });
 };
 
-exports.isUrlArchived = function(fileName, callback) {
-  exports.readArchive((filesInArchive) => {
-    // loop through files and check for match
-    callback(filesInArchive.indexOf(fileName) !== -1);
+exports.downloadUrls = function(urls) {
+  // Iterate over urls and pipe to new files
+  _.each(urls, function (url) {
+    if (!url) { return; }
+    request('http://' + url).pipe(fs.createWriteStream(exports.paths.archivedSites + '/' + url));
   });
 };
 
-exports.downloadUrls = function(urlArray) {
-  
-};
+// exports.readListOfUrls = function(callback) {
+//   fs.readFile(exports.paths.list, (err, sites) => {
+//     if (err) {
+//       console.log('Error');
+//     } else {
+//       sites = sites.toString().split('\n');
+//       callback(sites);
+//     }
+//   });
+// };
+
+// exports.isUrlInList = function(url, callback) { 
+//   exports.readListOfUrls((sites) => {
+//     // loop through and check for match
+//     callback(sites.indexOf(url) !== -1);
+//   });
+// };
+
+// exports.addUrlToList = function(url, callback) {
+//   fs.appendFile(exports.paths.list, url + '\n', (err) => {
+//     if (err) {
+//       console.log('Error');
+//     } else {
+//       if (callback) {
+//         callback();
+//       }
+//     }
+//   });
+// };
+
+// exports.readArchive = function(callback) {
+//   fs.readdir(exports.paths.archivedSites, (err, files) => {
+//     if (err) {
+//       console.log('Error');
+//     } else {
+//       var filesInArchive = [];
+//       files.forEach((file) => {
+//         filesInArchive.push(file);
+//       });
+//       callback(filesInArchive);
+//     }
+//   });
+// };
+
+// exports.isUrlArchived = function(fileName, callback) {
+//   exports.readArchive((filesInArchive) => {
+//     // loop through files and check for match
+//     callback(filesInArchive.indexOf(fileName) !== -1);
+//   });
+// };

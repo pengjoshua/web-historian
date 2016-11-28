@@ -1,8 +1,8 @@
 var path = require('path');
 var archive = require('../helpers/archive-helpers');
-var utils = require('./http-helpers.js');
+var helpers = require('./http-helpers.js');
 var fs = require('fs');
-var parser = require('url');
+var url = require('url');
 // require more modules/folders here!
 
 // var routes = {
@@ -11,44 +11,60 @@ var parser = require('url');
 // };
 
 var actions = {
-  'GET': function(request, response, route) {
-    utils.serveAssets(response, route, utils.sendResponse); 
+  'GET': function(request, response) {
+    var urlPath = url.parse(request.url).pathname;
 
+    // / means index.html
+    if (urlPath === '/') { urlPath = '/index.html'; }
+
+    helpers.serveAssets(response, urlPath, function() {
+      // trim leading slash if present
+      if (urlPath[0] === '/') { urlPath = urlPath.slice(1); }
+
+      archive.isUrlInList(urlPath, function(found) {
+        if (found) {
+          helpers.sendRedirect(response, '/loading.html');
+        } else {
+          helpers.send404(response);
+        }
+      });
+    });
   },
-  'POST': function(request, response, route) {
-    // utils.collectData(request, function(message) {
-    //   message.objectId = ++objectIdCounter;
-    //   messages.push(message);
-    //   utils.sendResponse(response, {objectId: message.objectId}, 201);
-    // });
-  },
-  'OPTIONS': function(request, response, route) {
-    // utils.sendResponse(response, null);
+  'POST': function(request, response) {
+    helpers.collectData(request, function(data) {
+      var url = data.split('=')[1].replace('http://', '');
+      // check sites.txt for web site
+      archive.isUrlInList(url, function(found) {
+        if (found) { // found site
+          // check if site is on disk
+          archive.isUrlArchived(url, function(exists) {
+            if (exists) {
+              // redirect to site page (/www.google.com)
+              helpers.sendRedirect(response, '/' + url);
+            } else {
+              // Redirect to loading.html
+              helpers.sendRedirect(response, '/loading.html');
+            }
+          });
+        } else { // not found
+          // add to sites.txt
+          archive.addUrlToList(url, function() {
+            // Redirect to loading.html
+            helpers.sendRedirect(response, '/loading.html');
+          });
+        }
+      });
+    });
   }
 };
 
 exports.handleRequest = function (req, res) {
-  console.log('Serving request type' + req.method + ' for url ' + req.url);
-  var action = actions[req.method];
-  var urlParts = parser.parse(req.url);
-  var route = urlParts.pathname;
-
-  if (urlParts.pathname === '/') {
-    route = __dirname + '/public/index.html';
-    // utils.sendResponse(res, archive.readListOfUrls, 200);
+  var handler = actions[req.method];
+  if (handler) {
+    handler(req, res);
   } else {
-    if (archive.isUrlInList(urlParts.pathname)) {
-      route = urlParts.pathname;
-    } else {
-      utils.sendResponse(res, 'Not found', 404);
-    }
+    helpers.send404(response);
   }
-
-  if (action) {
-    action(req, res, route);
-  } else {
-    utils.sendResponse(res, 'Not found', 404);
-  }
-  // res.end(archive.paths.list);
 };
+
 
